@@ -12,44 +12,22 @@ export default async function handler(req, res) {
   const action = urlParams.action;
   const stream_id = urlParams.stream_id || urlParams.series_id || urlParams.vod_id;
 
-  if (!username || !password) {
-    return res.status(200).json({ user_info: { auth: 0, status: "Faltan Credenciales" } });
+  // --- CREDENCIALES FIJAS DE TU CLIENTE PARA LA APP ---
+  const USUARIO_VALIDO = "leonardo";
+  const PASSWORD_VALIDO = "leonardo";
+  
+  // --- DATOS DE TU PROVEEDOR FIVETV (YA CONFIGURADOS) ---
+  const PROVEEDOR_BASE = "http://fivetv.org:25461"; 
+  const PROVEEDOR_USER = "karina20";               
+  const PROVEEDOR_PASS = "ruiz2200";               
+
+  // Validar credenciales del cliente en la App
+  if (username !== USUARIO_VALIDO || password !== PASSWORD_VALIDO) {
+    return res.status(200).json({ user_info: { auth: 0, status: "Credenciales Incorrectas" } });
   }
 
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_KEY = process.env.SUPABASE_KEY;
-
   try {
-    const urlConsulta = `${SUPABASE_URL}/rest/v1/usuarios_iptv?username=eq.${username}&password=eq.${password}&select=cliente,fecha_vencimiento,estado,conexiones_maximas,url_proveedor_m3u`;
-    
-    const respuestaSupabase = await fetch(urlConsulta, {
-      method: "GET",
-      headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }
-    });
-
-    const usuarios = await respuestaSupabase.json();
-
-    if (!usuarios || usuarios.length === 0) {
-      return res.status(200).json({ user_info: { auth: 0, status: "Credenciales Incorrectas" } });
-    }
-
-    const usuario = usuarios[0];
-    const fechaActual = new Date();
-    const fechaVencimiento = new Date(usuario.fecha_vencimiento);
-
-    if (usuario.estado !== "activo" || fechaActual > fechaVencimiento) {
-      return res.status(200).json({ user_info: { auth: 0, status: "Suscripcion Expirada" } });
-    }
-
-    const urlCompletaProv = usuario.url_proveedor_m3u;
-    const baseMatch = urlCompletaProv.match(/^https?:\/\/[^\/]+/);
-    const PROVEEDOR_BASE = baseMatch ? baseMatch[0] : "";
-    
-    const userMatch = urlCompletaProv.match(/[?&](username|user)=([^&]+)/);
-    const passMatch = urlCompletaProv.match(/[?&](password|pass)=([^&]+)/);
-    const PROVEEDOR_USER = userMatch ? userMatch[2] : "";
-    const PROVEEDOR_PASS = passMatch ? passMatch[2] : "";
-
+    // CASO A: Reproducción de canales o películas
     if (stream_id) {
       let tipoStream = "live";
       if (req.url.includes("movie") || req.url.includes("vod")) tipoStream = "movie";
@@ -57,16 +35,18 @@ export default async function handler(req, res) {
       return res.redirect(302, `${PROVEEDOR_BASE}/${tipoStream}/${PROVEEDOR_USER}/${PROVEEDOR_PASS}/${stream_id}.ts`);
     }
 
+    // CASO B: Descarga de listas o categorías
     if (action) {
       return res.redirect(302, `${PROVEEDOR_BASE}/player_api.php?username=${PROVEEDOR_USER}&password=${PROVEEDOR_PASS}&action=${action}`);
     }
 
+    // CASO C: Login inicial exitoso simulando Xtream Codes
     return res.status(200).json({
       user_info: {
         auth: 1,
         status: "Active",
-        exp_date: Math.floor(fechaVencimiento.getTime() / 1000).toString(),
-        max_connections: usuario.conexiones_maximas.toString()
+        exp_date: "1875139200", // Año 2029
+        max_connections: "2"
       },
       server_info: {
         server_url: req.headers.host || "localhost",
